@@ -130,7 +130,11 @@ spec:
           image: "{{ include "mimir.imageReference" (dict "ctx" . "component" "monolithic") }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
+            {{- if .Values.alertmanager.enabled }}
+            - "-target=all,alertmanager"
+            {{- else }}
             - "-target=all"
+            {{- end }}
             - "-config.expand-env=true"
             - "-config.file=/etc/mimir/mimir.yaml"
             {{- if $zoneName }}
