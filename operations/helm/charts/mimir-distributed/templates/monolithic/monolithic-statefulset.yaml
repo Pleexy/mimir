@@ -122,6 +122,11 @@ spec:
         {{- end }}
         - name: active-queries
           emptyDir: {}
+        {{- if and .Values.alertmanager.fallbackConfig .Values.alertmanager.enabled}}
+        - name: alertmanager-fallback-config
+          configMap:
+            name: {{ include "mimir.resourceName" (dict "ctx" . "component" "alertmanager") }}-fallback-config
+        {{- end }}
       containers:
         {{- if .Values.monolithic.extraContainers }}
         {{ toYaml .Values.monolithic.extraContainers | nindent 8 }}
@@ -138,10 +143,17 @@ spec:
             - "-config.expand-env=true"
             - "-config.file=/etc/mimir/mimir.yaml"
             {{- if $zoneName }}
+            {{- if .Values.alertmanager.enabled }}
+            - "-alertmanager.sharding-ring.instance-availability-zone={{ $zoneName }}"
+            {{- end}}
             - "-ingester.ring.instance-availability-zone={{ $zoneName }}"
             - "-store-gateway.sharding-ring.instance-availability-zone={{ $zoneName }}"
             {{- else }}
             - "-ingester.ring.instance-availability-zone=zone-default"
+            {{- if .Values.alertmanager.enabled }}
+            - "-alertmanager.sharding-ring.instance-availability-zone=zone-default"
+            {{- end}}
+
             {{- if .Values.monolithic.zoneAwareReplication.migration.enabled }}
             - "-blocks-storage.tsdb.flush-blocks-on-shutdown=true"
             - "-ingester.ring.unregister-on-shutdown=true"
@@ -185,6 +197,10 @@ spec:
             {{- end }}
             - name: active-queries
               mountPath: /active-query-tracker
+            {{- if and .Values.alertmanager.fallbackConfig .Values.alertmanager.enabled  }}
+            - name: alertmanager-fallback-config
+              mountPath: /configs/
+            {{- end }}
           ports:
             - name: http-metrics
               containerPort: {{ include "mimir.serverHttpListenPort" . }}
